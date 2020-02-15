@@ -1,9 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func main() {
 	root := NewNode("", nil, map[string]*Node{})
+
 	root.insert("/api/users/login", nil)
 	root.insert("/api/users", nil)
 	root.insert("/api/user", nil)
