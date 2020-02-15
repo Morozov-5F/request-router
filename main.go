@@ -1,23 +1,21 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 func main() {
+	root := NewNode("", nil, map[string]*Node{})
+	root.insert("/api/users/login", nil)
+	root.insert("/api/users", nil)
+	root.insert("/api/user", nil)
+	root.insert("/api/profiles/:username", nil)
+	root.insert("/api/profiles/:username/follow", nil)
+	root.insert("/api/articles", nil)
+	root.insert("/api/articles/feed", nil)
+	root.insert("/api/articles/:slug", nil)
+	root.insert("/api/articles/:slug/comments", nil)
+	root.insert("/api/articles/:slug/comments/:id", nil)
+	root.insert("/api/articles/:slug/favorite", nil)
+	root.insert("/api/tags", nil)
 
-	tree := NewTree()
-	tree.Insert("/api/users/login", 1)
-	tree.Insert("/api/users", 2)
-	tree.Insert("/api/profiles/:username", 3)
-	tree.Insert("/api/profiles/:username/follow", 4)
-	tree.Insert("/api/articles", 5)
-	tree.Insert("/api/articles/feed", 6)
-	tree.Insert("/api/articles/:slug", 7)
-	tree.Insert("/api/articles/:slug/comments", 8)
-	tree.Insert("/api/articles/:slug/comments/:id", 9)
-	tree.Insert("/api/articles/:slug/favorite", 10)
-	tree.Insert("/api/tags", 11)
-
-	fmt.Printf("%v\n", tree)
+	fmt.Println(root)
 }
