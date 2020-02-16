@@ -108,11 +108,11 @@ func (node *Node) insert(str string, value http.HandlerFunc) error {
 	return nil
 }
 
-func (node *Node) getValue(str string) (http.HandlerFunc, error) {
+func (node *Node) getValue(str string) (handler http.HandlerFunc, params map[string]string, err error) {
 	for len(str) > 0 {
 		_, l := commonPrefix(node.prefix, str)
 		if l != len(node.prefix) && node.prefix[:1] != ":" {
-			return nil, errors.New("no value for given path")
+			return nil, nil, errors.New("no value for given path")
 		}
 
 		if len(node.prefix) > 0 && node.prefix[:1] == ":" {
@@ -124,28 +124,39 @@ func (node *Node) getValue(str string) (http.HandlerFunc, error) {
 			}
 
 			if i == len(str) && node.value == nil {
-				return nil, errors.New("no value for given path")
+				return nil, nil, errors.New("no value for given path")
 			}
 
 			if i != len(str) && len(node.children) == 0 {
-				return nil, errors.New("no value for given path")
+				return nil, nil, errors.New("no value for given path")
 			}
 
 			l = i
+			params = map[string]string{node.prefix[1:]: str[0:l]}
 		}
 
 		if l == len(str) {
-			return node.value, nil
+			return node.value, params, nil
 		}
 
 		child := node.children[str[l:l+1]]
 		if nil == child {
 			child = node.children[":"]
 			if nil == child {
-				return nil, errors.New("no value for given path")
+				return nil, nil, errors.New("no value for given path")
 			}
 		}
-		return child.getValue(str[l:])
+		h, p, e := child.getValue(str[l:])
+		if e != nil {
+			return nil, nil, e
+		}
+		if params == nil {
+			return h, p, e
+		}
+		for k, v := range p {
+			params[k] = v
+		}
+		return h, params, nil
 	}
-	return nil, errors.New("no value for given path")
+	return nil, nil, errors.New("no value for given path")
 }
