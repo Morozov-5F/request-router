@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
 func main() {
 	root := NewNode("", nil, map[string]*Node{})
@@ -19,8 +22,11 @@ func main() {
 		"/api/articles/feed",
 		"/api/tags",
 	}
+
 	for _, route := range routes {
-		if err := root.insertWithParam(route, nil); err != nil {
+		if err := root.insert(route, func(http.ResponseWriter, *http.Request) {
+
+		}); err != nil {
 			fmt.Println(err)
 		}
 	}

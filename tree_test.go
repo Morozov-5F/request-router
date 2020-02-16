@@ -46,34 +46,41 @@ func TestTree_getValue(t *testing.T) {
 			handlerChannel <- retVal
 		}
 	}
-	regularRoutes := map[string]http.HandlerFunc{
-		"/api/users/login":   handlerGenerator("/api/users/login"),
-		"/api/users":         handlerGenerator("/api/users"),
-		"/api/user":          handlerGenerator("/api/user"),
-		"/api/articles":      handlerGenerator("/api/articles"),
-		"/api/articles/feed": handlerGenerator("/api/articles/feed"),
-		"/api/tags":          handlerGenerator("/api/tags"),
-		"/test":              handlerGenerator("/test"),
+	routes := map[string]http.HandlerFunc{
+		"/api/users/login":                 handlerGenerator("/api/users/login"),
+		"/api/users":                       handlerGenerator("/api/users"),
+		"/api/user":                        handlerGenerator("/api/user"),
+		"/api/articles":                    handlerGenerator("/api/articles"),
+		"/api/articles/:slug":              handlerGenerator("/api/articles/:slug"),
+		"/api/articles/:slug/comments":     handlerGenerator("/api/articles/:slug/comments"),
+		"/api/articles/:slug/comments/:id": handlerGenerator("/api/articles/:slug/comments/:id"),
+		"/api/tags":                        handlerGenerator("/api/tags"),
+		"/test":                            handlerGenerator("/test"),
 	}
 
 	root := NewNode("", nil, map[string]*Node{})
-	for route, handler := range regularRoutes {
+	for route, handler := range routes {
 		root.insert(route, handler)
 	}
 	type args struct {
 		str string
 	}
+	type want struct {
+		cb    http.HandlerFunc
+		cbOut string
+	}
 	tests := []struct {
 		name    string
 		args    args
-		want    http.HandlerFunc
+		want    want
 		wantErr bool
 	}{
-		{"Get handler for the first-level route succeeds", args{"/test"}, regularRoutes["/test"], false},
-		{"Get handler for the second-level route succeeds", args{"/api/user"}, regularRoutes["/api/user"], false},
-		{"Get handler for the third-level route succeeds", args{"/api/articles/feed"}, regularRoutes["/api/articles/feed"], false},
-		{"Get handler for non-existing route fails", args{"/non-existing"}, nil, true},
-		{"Get handler for existing route part fails", args{"/api"}, nil, true},
+		{"Get handler for the first-level route succeeds", args{"/test"}, want{routes["/test"], "/test"}, false},
+		{"Get handler for the second-level route succeeds", args{"/api/user"}, want{routes["/api/user"], "/api/user"}, false},
+		{"Get handler for the third-level route succeeds", args{"/api/articles/feed"}, want{routes["/api/articles/:slug"], "/api/articles/:slug"}, false},
+		{"Get handler for the fifth-level route succeeds", args{"/api/articles/feed/comments/123456"}, want{routes["/api/articles/:slug/comments/:id"], "/api/articles/:slug/comments/:id"}, false},
+		{"Get handler for non-existing route fails", args{"/non-existing"}, want{nil, ""}, true},
+		{"Get handler for existing route part fails", args{"/api"}, want{nil, ""}, true},
 	}
 
 	for _, tt := range tests {
@@ -87,14 +94,14 @@ func TestTree_getValue(t *testing.T) {
 				t.Errorf("error is expected but handler is not nil (got = %v)", got)
 				return
 			}
-			if got == nil && tt.want == nil {
+			if got == nil && tt.want.cb == nil {
 				return
 			}
 			got(nil, nil)
 			select {
 			case prefix := <-handlerChannel:
-				if prefix != tt.args.str {
-					t.Errorf("wrong callback for route '%v', expected '%v', got '%v' from channel", tt.args.str, prefix, tt.args.str)
+				if prefix != tt.want.cbOut {
+					t.Errorf("wrong callback for route '%v', expected '%v', got '%v' from channel", tt.args.str, tt.want.cbOut, prefix)
 				}
 			case <-time.After(1 * time.Second):
 				t.Errorf("timeout while waiting for the callback value for route '%v'", tt.args.str)

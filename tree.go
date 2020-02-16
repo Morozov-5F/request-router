@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 )
@@ -38,7 +39,7 @@ func (node *Node) repr() string {
 	if len(node.prefix) == 0 {
 		return "root"
 	}
-	return node.prefix
+	return fmt.Sprintf("%v (%v)", node.prefix, node.value)
 }
 
 func (node *Node) dump(pfx string, childPfx string) string {
@@ -68,7 +69,7 @@ func (node *Node) insert(str string, value http.HandlerFunc) error {
 	p, l := commonPrefix(node.prefix, str)
 
 	// If the p length is less than existing p, then we should split the node
-	if l < len(node.prefix) {
+	if l < len(node.prefix) && l != 0 {
 		node.children = map[string]*Node{node.prefix[l : l+1]: NewNode(node.prefix[l:], node.value, node.children)}
 		node.prefix = p
 		node.value = nil
@@ -85,13 +86,22 @@ func (node *Node) insert(str string, value http.HandlerFunc) error {
 		}
 
 		child := node.children[firstChar]
-		if nil == child {
-			node.children[str[l:l+1]] = NewNode(str[l:], value, map[string]*Node{})
-			return nil
+		if nil != child {
+			return child.insert(str[l:], value)
 		}
-		if err := child.insert(str[l:], value); err != nil {
-			return err
+
+		for i := l; i < len(str); i++ {
+			if i != l && str[i] == ':' {
+				node.children[firstChar] = NewNode(str[l:i], nil, map[string]*Node{})
+				return node.children[firstChar].insert(str[i:], value)
+			}
+			if str[l] == ':' && str[i] == '/' {
+				node.children[firstChar] = NewNode(str[l:i], nil, map[string]*Node{})
+				return node.children[firstChar].insert(str[i:], value)
+			}
 		}
+		node.children[firstChar] = NewNode(str[l:], value, map[string]*Node{})
+		return nil
 	}
 
 	node.value = value
@@ -105,46 +115,37 @@ func (node *Node) getValue(str string) (http.HandlerFunc, error) {
 			return nil, errors.New("no value for given path")
 		}
 
+		if len(node.prefix) > 0 && node.prefix[:1] == ":" {
+			i := 0
+			for ; i < len(str); i++ {
+				if str[i] == '/' {
+					break
+				}
+			}
+
+			if i == len(str) && node.value == nil {
+				return nil, errors.New("no value for given path")
+			}
+
+			if i != len(str) && len(node.children) == 0 {
+				return nil, errors.New("no value for given path")
+			}
+
+			l = i
+		}
+
 		if l == len(str) {
 			return node.value, nil
 		}
 
 		child := node.children[str[l:l+1]]
 		if nil == child {
-			return nil, errors.New("no value for given path")
+			child = node.children[":"]
+			if nil == child {
+				return nil, errors.New("no value for given path")
+			}
 		}
 		return child.getValue(str[l:])
 	}
 	return nil, errors.New("no value for given path")
-}
-
-func splitByParams(str string) []string {
-	res := []string{}
-	for i := 0; i < len(str); i++ {
-		if str[i] == ':' {
-			res = append(res, str[:i])
-			for i < len(str) && str[i] != '/' {
-				i++
-			}
-			res = append(res, str[:i])
-		}
-	}
-	if len(res) == 0 {
-		res = append(res, str)
-	}
-	return res
-}
-
-func (node *Node) insertWithParam(str string, value http.HandlerFunc) error {
-	params := splitByParams(str)
-	for i, path := range params {
-		var newValue http.HandlerFunc = nil
-		if i == len(params)-1 {
-			newValue = value
-		}
-		if err := node.insert(path, newValue); err != nil {
-			return err
-		}
-	}
-	return nil
 }
