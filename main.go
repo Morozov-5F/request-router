@@ -1,24 +1,29 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 func main() {
 	root := NewNode("", nil, map[string]*Node{})
 
-	root.insert("/api/users/login", nil)
-	root.insert("/api/users", nil)
-	root.insert("/api/user", nil)
-	root.insert("/api/profiles/:username", nil)
-	root.insert("/api/profiles/:username/follow", nil)
-	root.insert("/api/articles", nil)
-	root.insert("/api/articles/feed", nil)
-	root.insert("/api/articles/:slug", nil)
-	root.insert("/api/articles/:slug/comments", nil)
-	root.insert("/api/articles/:slug/comments/:id", nil)
-	root.insert("/api/articles/:slug/favorite", nil)
-	root.insert("/api/tags", nil)
+	routes := []string{
+		"/api/users/login",
+		"/api/users",
+		"/api/user",
+		"/api/profiles/:username",
+		"/api/profiles/:username/follow",
+		"/api/articles",
+		"/api/articles/:slug",
+		"/api/articles/:slug/comments",
+		"/api/articles/:slug/comments/:id",
+		"/api/articles/:slug/favorite",
+		"/api/articles/feed",
+		"/api/tags",
+	}
+	for _, route := range routes {
+		if err := root.insertWithParam(route, nil); err != nil {
+			fmt.Println(err)
+		}
+	}
 
 	fmt.Println(root)
 }

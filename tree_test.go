@@ -84,7 +84,7 @@ func TestTree_getValue(t *testing.T) {
 				return
 			}
 			if tt.wantErr && got != nil {
-				t.Errorf("error is expected but handler is not nil (got = %v)", err, got)
+				t.Errorf("error is expected but handler is not nil (got = %v)", got)
 				return
 			}
 			if got == nil && tt.want == nil {

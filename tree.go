@@ -64,7 +64,7 @@ func (node *Node) String() string {
 	return node.dump("", "")
 }
 
-func (node *Node) insert(str string, value http.HandlerFunc) {
+func (node *Node) insert(str string, value http.HandlerFunc) error {
 	p, l := commonPrefix(node.prefix, str)
 
 	// If the p length is less than existing p, then we should split the node
@@ -76,22 +76,32 @@ func (node *Node) insert(str string, value http.HandlerFunc) {
 
 	if l < len(str) {
 		// Find a child that starts with the same symbol as new value
-		child := node.children[str[l:l+1]]
+		firstChar := str[l : l+1]
+		if nil != node.children[":"] && firstChar != ":" {
+			return errors.New("unable to register regular route -- parametric route is already present")
+		}
+		if nil == node.children[":"] && firstChar == ":" && len(node.children) != 0 {
+			return errors.New("unable to register parametric route -- regular route is already present")
+		}
+
+		child := node.children[firstChar]
 		if nil == child {
 			node.children[str[l:l+1]] = NewNode(str[l:], value, map[string]*Node{})
-			return
+			return nil
 		}
-		child.insert(str[l:], value)
-		return
+		if err := child.insert(str[l:], value); err != nil {
+			return err
+		}
 	}
 
 	node.value = value
+	return nil
 }
 
 func (node *Node) getValue(str string) (http.HandlerFunc, error) {
 	for len(str) > 0 {
 		_, l := commonPrefix(node.prefix, str)
-		if l != len(node.prefix) {
+		if l != len(node.prefix) && node.prefix[:1] != ":" {
 			return nil, errors.New("no value for given path")
 		}
 
@@ -106,4 +116,35 @@ func (node *Node) getValue(str string) (http.HandlerFunc, error) {
 		return child.getValue(str[l:])
 	}
 	return nil, errors.New("no value for given path")
+}
+
+func splitByParams(str string) []string {
+	res := []string{}
+	for i := 0; i < len(str); i++ {
+		if str[i] == ':' {
+			res = append(res, str[:i])
+			for i < len(str) && str[i] != '/' {
+				i++
+			}
+			res = append(res, str[:i])
+		}
+	}
+	if len(res) == 0 {
+		res = append(res, str)
+	}
+	return res
+}
+
+func (node *Node) insertWithParam(str string, value http.HandlerFunc) error {
+	params := splitByParams(str)
+	for i, path := range params {
+		var newValue http.HandlerFunc = nil
+		if i == len(params)-1 {
+			newValue = value
+		}
+		if err := node.insert(path, newValue); err != nil {
+			return err
+		}
+	}
+	return nil
 }
